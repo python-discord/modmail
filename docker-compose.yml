@@ -1,28 +1,38 @@
 version: "3.7"
 services:
   bot:
-    image: kyb3rr/modmail
-    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
     env_file:
       - .env
     environment:
       - CONNECTION_URI=mongodb://mongo
     depends_on:
       - mongo
+    volumes:
+      - ./cogs:/modmailbot/cogs:ro
+      - ./core:/modmailbot/core:ro
+      - ./plugins:/modmailbot/plugins:ro
+
   logviewer:
     image: kyb3rr/logviewer
-    restart: always
+    restart: unless-stopped
     depends_on:
       - mongo
     environment:
       - MONGO_URI=mongodb://mongo
     ports:
       - 80:8000
+
   mongo:
     image: mongo
-    restart: always
+    restart: unless-stopped
     volumes:
       - mongodb:/data/db
+    ports:
+      - 27019:27019
 
 volumes:
   mongodb:
