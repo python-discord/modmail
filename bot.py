@@ -33,6 +33,10 @@ try:
 except ImportError:
     pass
 
+from core import monkey_patches
+
+monkey_patches.patch_typing()
+
 from core import checks
 from core.changelog import Changelog
 from core.clients import ApiClient, MongoDBClient, PluginDatabaseClient
