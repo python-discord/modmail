@@ -1,6 +1,6 @@
 {
   "errors": [],
-  "generated_at": "2021-11-20T17:06:28Z",
+  "generated_at": "2021-12-05T20:52:43Z",
   "metrics": {
     "./bot.py": {
       "CONFIDENCE.HIGH": 1.0,
@@ -11,7 +11,7 @@
       "SEVERITY.LOW": 1.0,
       "SEVERITY.MEDIUM": 0.0,
       "SEVERITY.UNDEFINED": 0.0,
-      "loc": 1406,
+      "loc": 1440,
       "nosec": 0
     },
     "./cogs/modmail.py": {
@@ -23,7 +23,7 @@
       "SEVERITY.LOW": 0.0,
       "SEVERITY.MEDIUM": 0.0,
       "SEVERITY.UNDEFINED": 0.0,
-      "loc": 1678,
+      "loc": 1739,
       "nosec": 0
     },
     "./cogs/plugins.py": {
@@ -47,7 +47,7 @@
       "SEVERITY.LOW": 1.0,
       "SEVERITY.MEDIUM": 1.0,
       "SEVERITY.UNDEFINED": 0.0,
-      "loc": 1768,
+      "loc": 1767,
       "nosec": 0
     },
     "./core/_color_data.py": {
@@ -107,7 +107,7 @@
       "SEVERITY.LOW": 0.0,
       "SEVERITY.MEDIUM": 0.0,
       "SEVERITY.UNDEFINED": 0.0,
-      "loc": 375,
+      "loc": 385,
       "nosec": 0
     },
     "./core/decorators.py": {
@@ -134,6 +134,18 @@
       "loc": 204,
       "nosec": 0
     },
+    "./core/monkey_patches.py": {
+      "CONFIDENCE.HIGH": 0.0,
+      "CONFIDENCE.LOW": 0.0,
+      "CONFIDENCE.MEDIUM": 0.0,
+      "CONFIDENCE.UNDEFINED": 0.0,
+      "SEVERITY.HIGH": 0.0,
+      "SEVERITY.LOW": 0.0,
+      "SEVERITY.MEDIUM": 0.0,
+      "SEVERITY.UNDEFINED": 0.0,
+      "loc": 27,
+      "nosec": 0
+    },
     "./core/paginator.py": {
       "CONFIDENCE.HIGH": 0.0,
       "CONFIDENCE.LOW": 0.0,
@@ -143,7 +155,7 @@
       "SEVERITY.LOW": 0.0,
       "SEVERITY.MEDIUM": 0.0,
       "SEVERITY.UNDEFINED": 0.0,
-      "loc": 209,
+      "loc": 306,
       "nosec": 0
     },
     "./core/thread.py": {
@@ -155,7 +167,7 @@
       "SEVERITY.LOW": 0.0,
       "SEVERITY.MEDIUM": 0.0,
       "SEVERITY.UNDEFINED": 0.0,
-      "loc": 1097,
+      "loc": 1184,
       "nosec": 0
     },
     "./core/time.py": {
@@ -167,7 +179,7 @@
       "SEVERITY.LOW": 0.0,
       "SEVERITY.MEDIUM": 0.0,
       "SEVERITY.UNDEFINED": 0.0,
-      "loc": 156,
+      "loc": 161,
       "nosec": 0
     },
     "./core/utils.py": {
@@ -179,7 +191,7 @@
       "SEVERITY.LOW": 0.0,
       "SEVERITY.MEDIUM": 0.0,
       "SEVERITY.UNDEFINED": 0.0,
-      "loc": 351,
+      "loc": 389,
       "nosec": 0
     },
     "_totals": {
@@ -191,20 +203,21 @@
       "SEVERITY.LOW": 5.0,
       "SEVERITY.MEDIUM": 1.0,
       "SEVERITY.UNDEFINED": 0.0,
-      "loc": 9878,
+      "loc": 10236,
       "nosec": 0
     }
   },
   "results": [
     {
-      "code": "13 from datetime import datetime\n14 from subprocess import PIPE\n15 from types import SimpleNamespace\n",
+      "code": "14 from datetime import datetime, timezone\n15 from subprocess import PIPE\n16 from types import SimpleNamespace\n",
+      "col_offset": 0,
       "filename": "./bot.py",
       "issue_confidence": "HIGH",
       "issue_severity": "LOW",
-      "issue_text": "Consider possible security implications associated with PIPE module.",
-      "line_number": 14,
+      "issue_text": "Consider possible security implications associated with the subprocess module.",
+      "line_number": 15,
       "line_range": [
-        14
+        15
       ],
       "more_info": "https://bandit.readthedocs.io/en/latest/blacklists/blacklist_imports.html#b404-import-subprocess",
       "test_id": "B404",
@@ -212,10 +225,11 @@
     },
     {
       "code": "13 from site import USER_SITE\n14 from subprocess import PIPE\n15 \n16 import discord\n",
+      "col_offset": 0,
       "filename": "./cogs/plugins.py",
       "issue_confidence": "HIGH",
       "issue_severity": "LOW",
-      "issue_text": "Consider possible security implications associated with PIPE module.",
+      "issue_text": "Consider possible security implications associated with the subprocess module.",
       "line_number": 14,
       "line_range": [
         14,
@@ -226,28 +240,30 @@
       "test_name": "blacklist"
     },
     {
-      "code": "12 from json import JSONDecodeError, loads\n13 from subprocess import PIPE\n14 from textwrap import indent\n",
+      "code": "11 from json import JSONDecodeError, loads\n12 from subprocess import PIPE\n13 from textwrap import indent\n",
+      "col_offset": 0,
       "filename": "./cogs/utility.py",
       "issue_confidence": "HIGH",
       "issue_severity": "LOW",
-      "issue_text": "Consider possible security implications associated with PIPE module.",
-      "line_number": 13,
+      "issue_text": "Consider possible security implications associated with the subprocess module.",
+      "line_number": 12,
       "line_range": [
-        13
+        12
       ],
       "more_info": "https://bandit.readthedocs.io/en/latest/blacklists/blacklist_imports.html#b404-import-subprocess",
       "test_id": "B404",
       "test_name": "blacklist"
     },
     {
-      "code": "2061         try:\n2062             exec(to_compile, env)  # pylint: disable=exec-used\n2063         except Exception as exc:\n",
+      "code": "2060         try:\n2061             exec(to_compile, env)  # pylint: disable=exec-used\n2062         except Exception as exc:\n",
+      "col_offset": 12,
       "filename": "./cogs/utility.py",
       "issue_confidence": "HIGH",
       "issue_severity": "MEDIUM",
       "issue_text": "Use of exec detected.",
-      "line_number": 2062,
+      "line_number": 2061,
       "line_range": [
-        2062
+        2061
       ],
       "more_info": "https://bandit.readthedocs.io/en/latest/plugins/b102_exec_used.html",
       "test_id": "B102",
@@ -255,10 +271,11 @@
     },
     {
       "code": "2 import re\n3 from subprocess import PIPE\n4 from typing import List\n",
+      "col_offset": 0,
       "filename": "./core/changelog.py",
       "issue_confidence": "HIGH",
       "issue_severity": "LOW",
-      "issue_text": "Consider possible security implications associated with PIPE module.",
+      "issue_text": "Consider possible security implications associated with the subprocess module.",
       "line_number": 3,
       "line_range": [
         3
@@ -269,6 +286,7 @@
     },
     {
       "code": "67 \n68     def __init__(self, bot, access_token: str = \"\", username: str = \"\", **kwargs):\n69         self.bot = bot\n70         self.session = bot.session\n71         self.headers: Optional[dict] = None\n72         self.access_token = access_token\n73         self.username = username\n74         self.avatar_url: str = kwargs.pop(\"avatar_url\", \"\")\n75         self.url: str = kwargs.pop(\"url\", \"\")\n76         if self.access_token:\n77             self.headers = {\"Authorization\": \"token \" + str(access_token)}\n78 \n79     @property\n80     def BRANCH(self):\n",
+      "col_offset": 4,
       "filename": "./core/clients.py",
       "issue_confidence": "MEDIUM",
       "issue_severity": "LOW",

@@ -6,6 +6,61 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project mostly adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 however, insignificant breaking changes do not guarantee a major version bump, see the reasoning [here](https://github.com/kyb3r/modmail/issues/319). If you're a plugin developer, note the "BREAKING" section.
 
+# v4.0.0
+
+### Breaking
+
+- Upgraded to discord.py v2.0 master ([internal changes](https://gist.github.com/apple502j/f75b4f24652f04de85c7084ffd73ec58), [GH #2990](https://github.com/kyb3r/modmail/issues/2990)).
+- Python 3.8 or higher is required.
+
+### Added
+
+- `use_hoisted_top_role` config to use change how default mod tags work, see `v3.10.0#Added` for details. ([PR #3093](https://github.com/kyb3r/modmail/pull/3093))
+- `require_close_reason` config to require a reason to close a thread. ([GH #3107](https://github.com/kyb3r/modmail/issues/3107))
+- `plain_snippets` config to force all snippets to be plain. ([GH #3083](https://github.com/kyb3r/modmail/issues/3083))
+- `?fpareply` and `?fpreply` to reply to messages with variables plainly.
+- `use_nickname_channel_name` config to use nicknames instead of usernames for channel names. ([GH #3112](https://github.com/kyb3r/modmail/issues/3112))
+- `show_log_url_button` config to show Log URL button. ([GH #3122](https://github.com/kyb3r/modmail/issues/3122))
+- Select menus for certain paginators.
+
+### Improved
+
+- Modmail now uses per-server avatars if applicable. ([GH #3048](https://github.com/kyb3r/modmail/issues/3048))
+- Use discord relative timedeltas. ([GH #3046](https://github.com/kyb3r/modmail/issues/3046))
+- Use discord native buttons for all paginator sessions.
+
+### Fixed
+
+- Several minor typos. ([PR #3095](https://github.com/kyb3r/modmail/pull/3095), [PR #3116](https://github.com/kyb3r/modmail/pull/3116))
+- Certain cases where fallback categories were not working as intended. ([PR #3109](https://github.com/kyb3r/modmail/pull/3109))
+- `?contact` would create in a random category in silent mode. ([GH #3091](https://github.com/kyb3r/modmail/issues/3091), [PR #3092](https://github.com/kyb3r/modmail/pull/3092))
+- Certain cases where `?close` would fail if closer isn't in cache. ([GH #3104](https://github.com/kyb3r/modmail/issues/3104), [PR #3105](https://github.com/kyb3r/modmail/pull/3105))
+- Stickers now work in Modmail.
+- Large server sizes results in Guild.name == None. ([GH #3088](https://github.com/kyb3r/modmail/issues/3088))
+- Attachments now work on plain replies. ([GH #3102](https://github.com/kyb3r/modmail/issues/3102))
+- Support LOTTIE stickers. ([GH #3119](https://github.com/kyb3r/modmail/issues/3119))
+- Editing notes now work. ([GH #3094](https://github.com/kyb3r/modmail/issues/3094))
+- Commands now work in threads.
+
+### Internal
+
+- Improve regex parsing of channel topics. ([GH #3114](https://github.com/kyb3r/modmail/issues/3114), [PR #3111](https://github.com/kyb3r/modmail/pull/3111))
+- Add warning if deploying on a developmental version.
+
+# v3.10.3
+
+### Improved
+
+- Thread genesis message now shows other recipients.
+
+### Fixed
+
+- `?snippet add` now properly blocks command names.
+
+### Internal
+
+- Set `LOG_DISCORD` environment variable to the logger level and log discord events.
+
 # v3.10.2
 This is a hotfix for react to contact.
 

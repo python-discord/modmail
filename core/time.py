@@ -6,12 +6,14 @@ https://github.com/Rapptz/RoboDanny/blob/rewrite/cogs/utils/time.py
 import re
 from datetime import datetime
 
+import discord
 from discord.ext.commands import BadArgument, Converter
 
 import parsedatetime as pdt
 from dateutil.relativedelta import relativedelta
 
 from core.models import getLogger
+
 
 logger = getLogger(__name__)
 
@@ -36,7 +38,7 @@ class ShortTime:
             raise BadArgument("Invalid time provided.")
 
         data = {k: int(v) for k, v in match.groupdict(default="0").items()}
-        now = datetime.utcnow()
+        now = discord.utils.utcnow()
         self.dt = now + relativedelta(**data)
 
 
@@ -50,7 +52,7 @@ class HumanTime:
     calendar = pdt.Calendar(version=pdt.VERSION_CONTEXT_STYLE)
 
     def __init__(self, argument):
-        now = datetime.utcnow()
+        now = discord.utils.utcnow()
         dt, status = self.calendar.parseDT(argument, sourceTime=now)
         if not status.hasDateOrTime:
             raise BadArgument('Invalid time provided, try e.g. "tomorrow" or "3 days".')
@@ -104,7 +106,7 @@ class UserFriendlyTimeSync(Converter):
         try:
             calendar = HumanTime.calendar
             regex = ShortTime.compiled
-            self.dt = self.now = datetime.utcnow()
+            self.dt = self.now = discord.utils.utcnow()
 
             match = regex.match(argument)
             if match is not None and match.group(0):
@@ -185,35 +187,39 @@ class UserFriendlyTime(UserFriendlyTimeSync):
         return super().convert(ctx, argument)
 
 
-def human_timedelta(dt, *, source=None):
-    now = source or datetime.utcnow()
-    if dt > now:
-        delta = relativedelta(dt, now)
-        suffix = ""
-    else:
-        delta = relativedelta(now, dt)
-        suffix = " ago"
-
-    if delta.microseconds and delta.seconds:
-        delta = delta + relativedelta(seconds=+1)
-
-    attrs = ["years", "months", "days", "hours", "minutes", "seconds"]
-
-    output = []
-    for attr in attrs:
-        elem = getattr(delta, attr)
-        if not elem:
-            continue
-
-        if elem > 1:
-            output.append(f"{elem} {attr}")
+def human_timedelta(dt, *, spec="R"):
+    if spec == "manual":
+        now = discord.utils.utcnow()
+        if dt > now:
+            delta = relativedelta(dt, now)
+            suffix = ""
         else:
-            output.append(f"{elem} {attr[:-1]}")
+            delta = relativedelta(now, dt)
+            suffix = " ago"
 
-    if not output:
-        return "now"
-    if len(output) == 1:
-        return output[0] + suffix
-    if len(output) == 2:
-        return f"{output[0]} and {output[1]}{suffix}"
-    return f"{output[0]}, {output[1]} and {output[2]}{suffix}"
+        if delta.microseconds and delta.seconds:
+            delta = delta + relativedelta(seconds=+1)
+
+        attrs = ["years", "months", "days", "hours", "minutes", "seconds"]
+
+        output = []
+        for attr in attrs:
+            elem = getattr(delta, attr)
+            if not elem:
+                continue
+
+            if elem > 1:
+                output.append(f"{elem} {attr}")
+            else:
+                output.append(f"{elem} {attr[:-1]}")
+
+        if not output:
+            return "now"
+        if len(output) == 1:
+            return output[0] + suffix
+        if len(output) == 2:
+            return f"{output[0]} and {output[1]}{suffix}"
+        return f"{output[0]}, {output[1]} and {output[2]}{suffix}"
+    else:
+        unixtime = int(dt.timestamp())
+        return f"<t:{unixtime}:{spec}>"

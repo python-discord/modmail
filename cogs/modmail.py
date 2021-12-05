@@ -1,6 +1,6 @@
 import asyncio
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from itertools import zip_longest
 from typing import Optional, Union
 from types import SimpleNamespace
@@ -12,7 +12,6 @@ from discord.role import Role
 from discord.utils import escape_markdown
 
 from dateutil import parser
-from natural.date import duration
 
 from core import checks
 from core.models import DMDisabled, PermissionLevel, SimilarCategoryConverter, getLogger
@@ -158,7 +157,7 @@ class Modmail(commands.Cog):
                 color=self.bot.error_color, description="You dont have any snippets at the moment."
             )
             embed.set_footer(text=f'Check "{self.bot.prefix}help snippet add" to add a snippet.')
-            embed.set_author(name="Snippets", icon_url=ctx.guild.icon_url)
+            embed.set_author(name="Snippets", icon_url=ctx.guild.icon.url)
             return await ctx.send(embed=embed)
 
         embeds = []
@@ -166,7 +165,7 @@ class Modmail(commands.Cog):
         for i, names in enumerate(zip_longest(*(iter(sorted(self.bot.snippets)),) * 15)):
             description = format_description(i, names)
             embed = discord.Embed(color=self.bot.main_color, description=description)
-            embed.set_author(name="Snippets", icon_url=ctx.guild.icon_url)
+            embed.set_author(name="Snippets", icon_url=ctx.guild.icon.url)
             embeds.append(embed)
 
         session = EmbedPaginatorSession(ctx, *embeds)
@@ -212,6 +211,7 @@ class Modmail(commands.Cog):
                 color=self.bot.error_color,
                 description=f"A command with the same name already exists: `{name}`.",
             )
+            return await ctx.send(embed=embed)
         elif name in self.bot.snippets:
             embed = discord.Embed(
                 title="Error",
@@ -358,7 +358,7 @@ class Modmail(commands.Cog):
 
         embed = discord.Embed(
             title="Scheduled close",
-            description=f"This thread will close {silent}in {human_delta}.",
+            description=f"This thread will close {silent}{human_delta}.",
             color=self.bot.error_color,
         )
 
@@ -395,7 +395,7 @@ class Modmail(commands.Cog):
 
         thread = ctx.thread
 
-        now = datetime.utcnow()
+        now = discord.utils.utcnow()
 
         close_after = (after.dt - now).total_seconds() if after else 0
         message = after.arg if after else None
@@ -416,6 +416,9 @@ class Modmail(commands.Cog):
                 )
 
             return await ctx.send(embed=embed)
+
+        if self.bot.config["require_close_reason"] and message is None:
+            raise commands.BadArgument("Provide a reason for closing the thread.")
 
         if after and after.dt > now:
             await self.send_scheduled_close_message(ctx, after, silent)
@@ -627,7 +630,7 @@ class Modmail(commands.Cog):
         title = f"Total Results Found ({len(logs)})"
 
         for entry in logs:
-            created_at = parser.parse(entry["created_at"])
+            created_at = parser.parse(entry["created_at"]).astimezone(timezone.utc)
 
             prefix = self.bot.config["log_url_prefix"].strip("/")
             if prefix == "NONE":
@@ -642,7 +645,7 @@ class Modmail(commands.Cog):
             embed = discord.Embed(color=self.bot.main_color, timestamp=created_at)
             embed.set_author(name=f"{title} - {username}", icon_url=avatar_url, url=log_url)
             embed.url = log_url
-            embed.add_field(name="Created", value=duration(created_at, now=datetime.utcnow()))
+            embed.add_field(name="Created", value=human_timedelta(created_at))
             closer = entry.get("closer")
             if closer is None:
                 closer_msg = "Unknown"
@@ -734,6 +737,7 @@ class Modmail(commands.Cog):
             ctx.command.reset_cooldown(ctx)
             return
 
+        to_exec = []
         if not silent:
             description = self.bot.formatter.format(
                 self.bot.config["private_added_to_group_response"], moderator=ctx.author
@@ -744,10 +748,10 @@ class Modmail(commands.Cog):
                 color=self.bot.main_color,
             )
             if self.bot.config["show_timestamp"]:
-                em.timestamp = datetime.utcnow()
-            em.set_footer(text=str(ctx.author), icon_url=ctx.author.avatar_url)
+                em.timestamp = discord.utils.utcnow()
+            em.set_footer(text=str(ctx.author), icon_url=ctx.author.display_avatar.url)
             for u in users:
-                await u.send(embed=em)
+                to_exec.append(u.send(embed=em))
 
             description = self.bot.formatter.format(
                 self.bot.config["public_added_to_group_response"],
@@ -760,14 +764,17 @@ class Modmail(commands.Cog):
                 color=self.bot.main_color,
             )
             if self.bot.config["show_timestamp"]:
-                em.timestamp = datetime.utcnow()
-            em.set_footer(text=f"{users[0]}", icon_url=users[0].avatar_url)
+                em.timestamp = discord.utils.utcnow()
+            em.set_footer(text=f"{users[0]}", icon_url=users[0].display_avatar.url)
 
             for i in ctx.thread.recipients:
                 if i not in users:
-                    await i.send(embed=em)
+                    to_exec.append(i.send(embed=em))
 
         await ctx.thread.add_users(users)
+        if to_exec:
+            await asyncio.gather(*to_exec)
+
         sent_emoji, _ = await self.bot.retrieve_emoji()
         await self.bot.add_reaction(ctx.message, sent_emoji)
 
@@ -813,6 +820,17 @@ class Modmail(commands.Cog):
                 ctx.command.reset_cooldown(ctx)
                 return
 
+        if not users:
+            em = discord.Embed(
+                title="Error",
+                description="No valid users to remove.",
+                color=self.bot.error_color,
+            )
+            await ctx.send(embed=em)
+            ctx.command.reset_cooldown(ctx)
+            return
+
+        to_exec = []
         if not silent:
             description = self.bot.formatter.format(
                 self.bot.config["private_removed_from_group_response"], moderator=ctx.author
@@ -823,10 +841,10 @@ class Modmail(commands.Cog):
                 color=self.bot.main_color,
             )
             if self.bot.config["show_timestamp"]:
-                em.timestamp = datetime.utcnow()
-            em.set_footer(text=str(ctx.author), icon_url=ctx.author.avatar_url)
+                em.timestamp = discord.utils.utcnow()
+            em.set_footer(text=str(ctx.author), icon_url=ctx.author.display_avatar.url)
             for u in users:
-                await u.send(embed=em)
+                to_exec.append(u.send(embed=em))
 
             description = self.bot.formatter.format(
                 self.bot.config["public_removed_from_group_response"],
@@ -839,14 +857,17 @@ class Modmail(commands.Cog):
                 color=self.bot.main_color,
             )
             if self.bot.config["show_timestamp"]:
-                em.timestamp = datetime.utcnow()
-            em.set_footer(text=f"{users[0]}", icon_url=users[0].avatar_url)
+                em.timestamp = discord.utils.utcnow()
+            em.set_footer(text=f"{users[0]}", icon_url=users[0].display_avatar.url)
 
             for i in ctx.thread.recipients:
                 if i not in users:
-                    await i.send(embed=em)
+                    to_exec.append(i.send(embed=em))
 
         await ctx.thread.remove_users(users)
+        if to_exec:
+            await asyncio.gather(*to_exec)
+
         sent_emoji, _ = await self.bot.retrieve_emoji()
         await self.bot.add_reaction(ctx.message, sent_emoji)
 
@@ -896,6 +917,7 @@ class Modmail(commands.Cog):
             ctx.command.reset_cooldown(ctx)
             return
 
+        to_exec = []
         if not silent:
             em = discord.Embed(
                 title=self.bot.config["private_added_to_group_title"],
@@ -903,21 +925,21 @@ class Modmail(commands.Cog):
                 color=self.bot.main_color,
             )
             if self.bot.config["show_timestamp"]:
-                em.timestamp = datetime.utcnow()
+                em.timestamp = discord.utils.utcnow()
 
             tag = self.bot.config["mod_tag"]
             if tag is None:
-                tag = str(get_top_hoisted_role(ctx.author))
+                tag = str(get_top_role(ctx.author, self.bot.config["use_hoisted_top_role"]))
             name = self.bot.config["anon_username"]
             if name is None:
                 name = tag
             avatar_url = self.bot.config["anon_avatar_url"]
             if avatar_url is None:
-                avatar_url = self.bot.guild.icon_url
+                avatar_url = self.bot.guild.icon.url
             em.set_footer(text=name, icon_url=avatar_url)
 
             for u in users:
-                await u.send(embed=em)
+                to_exec.append(u.send(embed=em))
 
             description = self.bot.formatter.format(
                 self.bot.config["public_added_to_group_description_anon"],
@@ -929,14 +951,17 @@ class Modmail(commands.Cog):
                 color=self.bot.main_color,
             )
             if self.bot.config["show_timestamp"]:
-                em.timestamp = datetime.utcnow()
-            em.set_footer(text=f"{users[0]}", icon_url=users[0].avatar_url)
+                em.timestamp = discord.utils.utcnow()
+            em.set_footer(text=f"{users[0]}", icon_url=users[0].display_avatar.url)
 
             for i in ctx.thread.recipients:
                 if i not in users:
-                    await i.send(embed=em)
+                    to_exec.append(i.send(embed=em))
 
         await ctx.thread.add_users(users)
+        if to_exec:
+            await asyncio.gather(*to_exec)
+
         sent_emoji, _ = await self.bot.retrieve_emoji()
         await self.bot.add_reaction(ctx.message, sent_emoji)
 
@@ -981,6 +1006,7 @@ class Modmail(commands.Cog):
                 ctx.command.reset_cooldown(ctx)
                 return
 
+        to_exec = []
         if not silent:
             em = discord.Embed(
                 title=self.bot.config["private_removed_from_group_title"],
@@ -988,21 +1014,21 @@ class Modmail(commands.Cog):
                 color=self.bot.main_color,
             )
             if self.bot.config["show_timestamp"]:
-                em.timestamp = datetime.utcnow()
+                em.timestamp = discord.utils.utcnow()
 
             tag = self.bot.config["mod_tag"]
             if tag is None:
-                tag = str(get_top_hoisted_role(ctx.author))
+                tag = str(get_top_role(ctx.author, self.bot.config["use_hoisted_top_role"]))
             name = self.bot.config["anon_username"]
             if name is None:
                 name = tag
             avatar_url = self.bot.config["anon_avatar_url"]
             if avatar_url is None:
-                avatar_url = self.bot.guild.icon_url
+                avatar_url = self.bot.guild.icon.url
             em.set_footer(text=name, icon_url=avatar_url)
 
             for u in users:
-                await u.send(embed=em)
+                to_exec.append(u.send(embed=em))
 
             description = self.bot.formatter.format(
                 self.bot.config["public_removed_from_group_description_anon"],
@@ -1014,14 +1040,17 @@ class Modmail(commands.Cog):
                 color=self.bot.main_color,
             )
             if self.bot.config["show_timestamp"]:
-                em.timestamp = datetime.utcnow()
-            em.set_footer(text=f"{users[0]}", icon_url=users[0].avatar_url)
+                em.timestamp = discord.utils.utcnow()
+            em.set_footer(text=f"{users[0]}", icon_url=users[0].display_avatar.url)
 
             for i in ctx.thread.recipients:
                 if i not in users:
-                    await i.send(embed=em)
+                    to_exec.append(i.send(embed=em))
 
         await ctx.thread.remove_users(users)
+        if to_exec:
+            await asyncio.gather(*to_exec)
+
         sent_emoji, _ = await self.bot.retrieve_emoji()
         await self.bot.add_reaction(ctx.message, sent_emoji)
 
@@ -1042,7 +1071,7 @@ class Modmail(commands.Cog):
             thread = ctx.thread
             if not thread:
                 raise commands.MissingRequiredArgument(SimpleNamespace(name="member"))
-            user = thread.recipient or await self.bot.fetch_user(thread.id)
+            user = thread.recipient or await self.bot.get_or_fetch_user(thread.id)
 
         default_avatar = "https://cdn.discordapp.com/embed/avatars/0.png"
         icon_url = getattr(user, "avatar_url", default_avatar)
@@ -1075,7 +1104,7 @@ class Modmail(commands.Cog):
         user = user if user is not None else ctx.author
 
         entries = await self.bot.api.search_closed_by(user.id)
-        embeds = self.format_log_embeds(entries, avatar_url=self.bot.guild.icon_url)
+        embeds = self.format_log_embeds(entries, avatar_url=self.bot.guild.icon.url)
 
         if not embeds:
             embed = discord.Embed(
@@ -1125,7 +1154,7 @@ class Modmail(commands.Cog):
 
         entries = await self.bot.api.get_responded_logs(user.id)
 
-        embeds = self.format_log_embeds(entries, avatar_url=self.bot.guild.icon_url)
+        embeds = self.format_log_embeds(entries, avatar_url=self.bot.guild.icon.url)
 
         if not embeds:
             embed = discord.Embed(
@@ -1150,7 +1179,7 @@ class Modmail(commands.Cog):
 
         entries = await self.bot.api.search_by_text(query, limit)
 
-        embeds = self.format_log_embeds(entries, avatar_url=self.bot.guild.icon_url)
+        embeds = self.format_log_embeds(entries, avatar_url=self.bot.guild.icon.url)
 
         if not embeds:
             embed = discord.Embed(
@@ -1221,6 +1250,50 @@ class Modmail(commands.Cog):
         ctx.message.content = msg
         async with ctx.typing():
             await ctx.thread.reply(ctx.message, anonymous=True)
+
+    @commands.command(aliases=["formatplainreply"])
+    @checks.has_permissions(PermissionLevel.SUPPORTER)
+    @checks.thread_only()
+    async def fpreply(self, ctx, *, msg: str = ""):
+        """
+        Reply to a Modmail thread with variables and a plain message.
+
+        Works just like `{prefix}areply`, however with the addition of three variables:
+          - `{{channel}}` - the `discord.TextChannel` object
+          - `{{recipient}}` - the `discord.User` object of the recipient
+          - `{{author}}` - the `discord.User` object of the author
+
+        Supports attachments and images as well as
+        automatically embedding image URLs.
+        """
+        msg = self.bot.formatter.format(
+            msg, channel=ctx.channel, recipient=ctx.thread.recipient, author=ctx.message.author
+        )
+        ctx.message.content = msg
+        async with ctx.typing():
+            await ctx.thread.reply(ctx.message, plain=True)
+
+    @commands.command(aliases=["formatplainanonreply"])
+    @checks.has_permissions(PermissionLevel.SUPPORTER)
+    @checks.thread_only()
+    async def fpareply(self, ctx, *, msg: str = ""):
+        """
+        Anonymously reply to a Modmail thread with variables and a plain message.
+
+        Works just like `{prefix}areply`, however with the addition of three variables:
+          - `{{channel}}` - the `discord.TextChannel` object
+          - `{{recipient}}` - the `discord.User` object of the recipient
+          - `{{author}}` - the `discord.User` object of the author
+
+        Supports attachments and images as well as
+        automatically embedding image URLs.
+        """
+        msg = self.bot.formatter.format(
+            msg, channel=ctx.channel, recipient=ctx.thread.recipient, author=ctx.message.author
+        )
+        ctx.message.content = msg
+        async with ctx.typing():
+            await ctx.thread.reply(ctx.message, anonymous=True, plain=True)
 
     @commands.command(aliases=["anonreply", "anonymousreply"])
     @checks.has_permissions(PermissionLevel.SUPPORTER)
@@ -1351,9 +1424,16 @@ class Modmail(commands.Cog):
         """
         silent = False
         if isinstance(category, str):
-            if "silent" in category or "silently" in category:
+            category = category.split()
+
+            # just check the last element in the list
+            if category[-1].lower() in ("silent", "silently"):
                 silent = True
-                category = category.strip("silently").strip("silent").strip()
+                # remove the last element as we no longer need it
+                category.pop()
+
+            category = " ".join(category)
+            if category:
                 try:
                     category = await SimilarCategoryConverter().convert(
                         ctx, category
@@ -1434,8 +1514,8 @@ class Modmail(commands.Cog):
                 color=self.bot.main_color,
             )
             if self.bot.config["show_timestamp"]:
-                em.timestamp = datetime.utcnow()
-            em.set_footer(text=f"{creator}", icon_url=creator.avatar_url)
+                em.timestamp = discord.utils.utcnow()
+            em.set_footer(text=f"{creator}", icon_url=creator.display_avatar.url)
 
             for u in users:
                 await u.send(embed=em)
@@ -1492,15 +1572,12 @@ class Modmail(commands.Cog):
                     logger.debug("No longer blocked, user %s.", id_)
                     continue
 
-            user = self.bot.get_user(int(id_))
-            if user:
-                users.append((user.mention, reason))
+            try:
+                user = await self.bot.get_or_fetch_user(int(id_))
+            except discord.NotFound:
+                users.append((id_, reason))
             else:
-                try:
-                    user = await self.bot.fetch_user(id_)
-                    users.append((user.mention, reason))
-                except discord.NotFound:
-                    users.append((id_, reason))
+                users.append((user.mention, reason))
 
         blocked_roles = list(self.bot.blocked_roles.items())
         for id_, reason in blocked_roles:
@@ -1837,10 +1914,10 @@ class Modmail(commands.Cog):
                 and message.embeds[0].color.value == self.bot.main_color
                 and message.embeds[0].footer.text
             ):
-                user_id = match_user_id(message.embeds[0].footer.text)
+                user_id = match_user_id(message.embeds[0].footer.text, any_string=True)
                 other_recipients = match_other_recipients(ctx.channel.topic)
                 for n, uid in enumerate(other_recipients):
-                    other_recipients[n] = self.bot.get_user(uid) or await self.bot.fetch_user(uid)
+                    other_recipients[n] = await self.bot.get_or_fetch_user(uid)
 
                 if user_id != -1:
                     recipient = self.bot.get_user(user_id)
@@ -1893,7 +1970,7 @@ class Modmail(commands.Cog):
 
                 other_recipients = match_other_recipients(ctx.channel.topic)
                 for n, uid in enumerate(other_recipients):
-                    other_recipients[n] = self.bot.get_user(uid) or await self.bot.fetch_user(uid)
+                    other_recipients[n] = await self.bot.get_or_fetch_user(uid)
 
                 if recipient is None:
                     self.bot.threads.cache[user.id] = thread = Thread(
