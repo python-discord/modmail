@@ -808,7 +808,15 @@ class Thread:
         """Returns List[user_dm_msg] and thread_channel_msg"""
         if not message.content and not message.attachments:
             raise MissingRequiredArgument(SimpleNamespace(name="msg"))
-        if not any(g.get_member(self.id) for g in self.bot.guilds):
+
+        for guild in self.bot.guilds:
+            try:
+                self.bot.get_or_fetch_member(guild, self.id)
+            except discord.NotFound:
+                pass
+            else:
+                break
+        else:
             return await message.channel.send(
                 embed=discord.Embed(
                     color=self.bot.error_color,
