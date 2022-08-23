@@ -196,6 +196,9 @@ class ModmailBot(commands.Bot):
     def run(self):
         loop = self.loop
 
+        # Add the message contents intent. This is required until modmail stable is running on Discord.py 2.0
+        self._connection._intents.value += 1 << 15
+
         try:
             loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
             loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
