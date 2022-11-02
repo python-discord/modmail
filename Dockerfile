@@ -1,15 +1,9 @@
-FROM python:3.10 as py
+FROM python:3.10-slim
 
-FROM py as build
-
-RUN apt update && apt install -y g++ git
+RUN apt-get update && apt-get install -y libpangocairo-1.0-0 && apt-get clean
 
 COPY requirements.txt /
-RUN pip install --prefix=/inst -U -r /requirements.txt
-
-FROM py
-
-COPY --from=build /inst /usr/local
+RUN pip install -U -r /requirements.txt
 
 ENV USING_DOCKER yes
 RUN useradd --system --no-create-home modmail
