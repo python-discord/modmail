@@ -299,6 +299,9 @@ class Plugins(commands.Cog):
             if os.path.exists(USER_SITE):
                 sys.path.insert(0, USER_SITE)
 
+        # Ensure the import system picks up plugin directories created at runtime.
+        invalidate_caches()
+
         try:
             await self.bot.load_extension(plugin.ext_string)
             logger.info("Loaded plugin: %s", plugin.ext_string.split(".")[-1])
