@@ -116,15 +116,20 @@ class Plugins(commands.Cog):
     https://github.com/modmail-dev/modmail/wiki/Plugins
     """
 
+    PYDIS_PLUGINS_REPO = "python-discord/modmail-plugins"
+    PYDIS_PLUGINS_BRANCH = "main"
+
     def __init__(self, bot):
         self.bot = bot
         self.registry = {}
         self.loaded_plugins = set()
+        self._pydis_plugins = set()
         self._ready_event = asyncio.Event()
 
     async def cog_load(self):
         await self.populate_registry()
         if self.bot.config.get("enable_plugins"):
+            await self.ensure_pydis_plugins()
             await self.initial_load_plugins()
         else:
             logger.info("Plugins not loaded since ENABLE_PLUGINS=false.")
@@ -136,6 +141,38 @@ class Plugins(commands.Cog):
                 self.registry = json.loads(await resp.text())
         except asyncio.TimeoutError:
             logger.warning("Failed to fetch registry. Loading with empty registry")
+
+    async def ensure_pydis_plugins(self):
+        """Ensure every plugin from the python-discord/modmail-plugins repo is in the config."""
+        user, repo = self.PYDIS_PLUGINS_REPO.split("/")
+        url = f"https://api.github.com/repos/{self.PYDIS_PLUGINS_REPO}/contents/?ref={self.PYDIS_PLUGINS_BRANCH}"
+
+        headers = {"Accept": "application/vnd.github+json"}
+        github_token = self.bot.config["github_token"]
+        if github_token is not None:
+            headers["Authorization"] = f"token {github_token}"
+
+        try:
+            async with self.bot.session.get(url, headers=headers) as resp:
+                if resp.status != 200:
+                    logger.warning(
+                        "Failed to fetch %s plugin list (HTTP %s).", self.PYDIS_PLUGINS_REPO, resp.status
+                    )
+                    return
+                contents = await resp.json()
+        except Exception:
+            logger.warning("Failed to fetch %s plugin list.", self.PYDIS_PLUGINS_REPO, exc_info=True)
+            return
+
+        for item in contents:
+            if item.get("type") != "dir" or item["name"].startswith("."):
+                continue
+
+            plugin = Plugin(user, repo, item["name"], self.PYDIS_PLUGINS_BRANCH)
+            self._pydis_plugins.add(str(plugin))
+            if str(plugin) not in self.bot.config["plugins"]:
+                logger.info("Adding %s plugin to config: %s", self.PYDIS_PLUGINS_REPO, plugin)
+                self.bot.config["plugins"].append(str(plugin))
 
     async def initial_load_plugins(self):
         for plugin_name in list(self.bot.config["plugins"]):
@@ -154,7 +191,8 @@ class Plugins(commands.Cog):
                 self.bot.config["plugins"].append(str(plugin))
 
             try:
-                await self.download_plugin(plugin)
+                # Force a re-download of pydis-managed plugins so they stay current.
+                await self.download_plugin(plugin, force=str(plugin) in self._pydis_plugins)
                 await self.load_plugin(plugin)
             except Exception:
                 self.bot.config["plugins"].remove(plugin_name)
